@@ -1,0 +1,2 @@
+#!/bin/sh
+godoc2md github.com/leemcloughlin/expect > README.md

@@ -1,0 +1,6 @@
+expect.go.old
+rot
+test/test
+cover.out
+*.old*
+testdata
