@@ -12,7 +12,6 @@ package expect
 import (
 	"fmt"
 	"os"
-	"testing"
 )
 
 func ExampleExpect() {
