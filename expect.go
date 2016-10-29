@@ -11,7 +11,7 @@ Copyright (C) 2016 LMMR Tech Ltd
 Expect is pure Go (golang) version of the terminal interaction package Expect
 common on many Linux systems
 
-A very simple example that calls the rev program to revese the text in each
+A very simple example that calls the rev program to reverse the text in each
 line is:
 
 	exp, err := NewExpect("rev")
