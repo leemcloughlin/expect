@@ -119,7 +119,7 @@ type Expect struct {
 	// On EOF being read from Cmd this is set (and ExpectReader is ended)
 	Eof bool
 
-	// Result is filled in as the cmd exits
+	// Result is filled in asynchronously after the cmd exits
 	Result ExpectWaitResult
 }
 
