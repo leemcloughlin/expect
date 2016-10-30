@@ -118,6 +118,17 @@ type Expect struct {
 
 	// On EOF being read from Cmd this is set (and ExpectReader is ended)
 	Eof bool
+
+	// Result is filled in as the cmd exits
+	Result ExpectWaitResult
+}
+
+type ExpectWaitResult struct {
+	// IsValid is true if this has been set because wait returned
+	IsValid bool
+
+	ProcessState *os.ProcessState
+	Error        error
 }
 
 // debugf logs only if Debug is true
@@ -155,7 +166,7 @@ func NewExpect(prog string, arg ...string) (*Expect, error) {
 		}
 		return nil, err
 	}
-	go expectReaper(exp.cmd.Process)
+	go exp.expectReaper()
 	kill = true
 
 	// make the pty non blocking so when I read from it I dont jam up
@@ -182,9 +193,11 @@ func NewExpect(prog string, arg ...string) (*Expect, error) {
 	return exp, err
 }
 
-// expectReaper just cleans up if the process ends for any reason
-func expectReaper(proc *os.Process) {
-	proc.Wait()
+// expectReaper reaps the process if it ends for any reason and saves the
+// Wait() result
+func (exp *Expect) expectReaper() {
+	exp.Result.ProcessState, exp.Result.Error = exp.cmd.Process.Wait()
+	exp.Result.IsValid = true
 }
 
 // SetCmdOut if a non-nil io.Writer is passed it will be sent a copy of everything

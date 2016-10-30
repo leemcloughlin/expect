@@ -82,6 +82,32 @@ func checkResultRe(t *testing.T, pat string, re *regexp.Regexp, i int, n int, fo
 	}
 }
 
+func showWaitResult(t *testing.T, exp *Expect) {
+	valid := false
+	// Wait a little bit for Result to be filled in
+	time.Sleep(time.Millisecond * 10)
+	// Try a few fimes to see if its valid (maybe I should have used a channel
+	// but checking for all the errors is painful for code I expect to be used
+	// so rarely)
+	for i := 1; i <= 3; i++ {
+		if exp.Result.IsValid {
+			valid = true
+			break
+		}
+		t.Logf("pause %d for Wait() result", i)
+		time.Sleep(time.Second)
+	}
+	if !valid {
+		t.Logf("Wait() result never went valid")
+		return
+	}
+	if exp.Result.Error != nil {
+		t.Logf("Wait() result: %s, %s", exp.Result.ProcessState, exp.Result.Error)
+	} else {
+		t.Logf("Wait() result: %s", exp.Result.ProcessState)
+	}
+}
+
 func Test_NewExpect(t *testing.T) {
 	debugf("%s start", funcName())
 	defer debugf("%s end", funcName())
@@ -94,6 +120,7 @@ func Test_NewExpect(t *testing.T) {
 	}
 	t.Log("OK killing processes")
 	exp.Kill()
+	showWaitResult(t, exp)
 }
 
 func Test_Spawn(t *testing.T) {
@@ -108,6 +135,7 @@ func Test_Spawn(t *testing.T) {
 	}
 	t.Log("OK killing processes")
 	exp.Kill()
+	showWaitResult(t, exp)
 }
 
 func Test_LogUser(t *testing.T) {
@@ -140,6 +168,7 @@ This may appear before the log messages as they are buffered
 
 	t.Log("killing process")
 	exp.Kill()
+	showWaitResult(t, exp)
 }
 
 func Test_ExpectCmdOutAndClear(t *testing.T) {
@@ -186,6 +215,7 @@ func Test_ExpectCmdOutAndClear(t *testing.T) {
 	} else {
 		t.Log("buf is empty as expected")
 	}
+	showWaitResult(t, exp)
 }
 
 func Test_ExpectMatchTimeout(t *testing.T) {
@@ -211,6 +241,7 @@ func Test_ExpectMatchTimeout(t *testing.T) {
 	}
 
 	exp.Kill()
+	showWaitResult(t, exp)
 }
 
 func Test_ExpectMatch1s(t *testing.T) {
@@ -232,6 +263,7 @@ func Test_ExpectMatch1s(t *testing.T) {
 	checkResultStr(t, pat, 0, n, found, err)
 
 	exp.Send(EOF)
+	showWaitResult(t, exp)
 }
 
 func Test_ExpectMatch1re(t *testing.T) {
@@ -254,6 +286,7 @@ func Test_ExpectMatch1re(t *testing.T) {
 	checkResultRe(t, pat, re, 0, n, found, err)
 
 	exp.Send(EOF)
+	showWaitResult(t, exp)
 }
 
 func Test_ExpectiMatch1(t *testing.T) {
@@ -279,6 +312,7 @@ func Test_ExpectiMatch1(t *testing.T) {
 	}
 
 	exp.Send(EOF)
+	showWaitResult(t, exp)
 }
 
 func Test_ExpectMatch2re(t *testing.T) {
@@ -310,6 +344,7 @@ func Test_ExpectMatch2re(t *testing.T) {
 	checkResultRe(t, pat2, re2, 1, n, found, err)
 
 	exp.Send(EOF)
+	showWaitResult(t, exp)
 }
 
 func Test_ExpectMatch2s(t *testing.T) {
@@ -339,6 +374,7 @@ func Test_ExpectMatch2s(t *testing.T) {
 	checkResultStr(t, pat2, 1, n, found, err)
 
 	exp.Send(EOF)
+	showWaitResult(t, exp)
 }
 
 func Test_ExpectMatch2reEOI(t *testing.T) {
@@ -371,6 +407,7 @@ func Test_ExpectMatch2reEOI(t *testing.T) {
 	checkResultRe(t, pat2, re2, 1, n, found, err)
 
 	exp.Send(EOF)
+	showWaitResult(t, exp)
 }
 
 func Test_ExpectMatch2sEOI(t *testing.T) {
@@ -400,6 +437,7 @@ func Test_ExpectMatch2sEOI(t *testing.T) {
 	checkResultStr(t, pat2, 1, n, found, err)
 
 	exp.Send(EOF)
+	showWaitResult(t, exp)
 }
 
 func Test_ExpectMatchFind2nd(t *testing.T) {
@@ -426,6 +464,7 @@ func Test_ExpectMatchFind2nd(t *testing.T) {
 	checkResultStr(t, pat2, 1, n, found, err)
 
 	exp.Send(EOF)
+	showWaitResult(t, exp)
 }
 
 func Test_ExpectMatchSplitRe(t *testing.T) {
@@ -457,6 +496,7 @@ func Test_ExpectMatchSplitRe(t *testing.T) {
 	checkResultRe(t, pat2, re, 0, n, found, err)
 
 	exp.Send(EOF)
+	showWaitResult(t, exp)
 }
 
 func Test_ExpectMatchSplitS(t *testing.T) {
@@ -486,6 +526,7 @@ func Test_ExpectMatchSplitS(t *testing.T) {
 	checkResultStr(t, pat2, 0, n, found, err)
 
 	exp.Send(EOF)
+	showWaitResult(t, exp)
 }
 
 func Test_ExpectSendDelay(t *testing.T) {
@@ -513,6 +554,7 @@ func Test_ExpectSendDelay(t *testing.T) {
 	checkResultStr(t, pat, 0, n, found, err)
 
 	exp.Send(EOF)
+	showWaitResult(t, exp)
 }
 
 func Test_ExpectUTFs(t *testing.T) {
@@ -536,6 +578,7 @@ func Test_ExpectUTFs(t *testing.T) {
 	checkResultStr(t, pat, 0, n, found, err)
 
 	exp.Send(EOF)
+	showWaitResult(t, exp)
 }
 
 func Test_ExpectUTFre(t *testing.T) {
@@ -560,4 +603,5 @@ func Test_ExpectUTFre(t *testing.T) {
 	checkResultRe(t, "世界", re, 0, n, found, err)
 
 	exp.Send(EOF)
+	showWaitResult(t, exp)
 }
