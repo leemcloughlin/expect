@@ -143,38 +143,55 @@ func debugf(format string, args ...interface{}) {
 // NewExpect starts prog, passing any given args, in its own pty.
 // Note that in order to be non-blocking while reading from the pty this sets
 // the non-blocking flag and looks for EAGAIN on reads failing.  This has only
-// been tested on Linux systems
+// been tested on Linux systems.
+// On prog exiting or being killed Result is filled in shortly after.
 func NewExpect(prog string, arg ...string) (*Expect, error) {
+	return newExpectCommon(true, prog, arg...)
+}
+
+// NewExpectProc is similar to NewExpect except the created cmd is returned.
+// It is expected that the cmd will exit normally otherwise it is left to
+// the caller to kill it.
+// In the event of an error starting the cmd it will be killed but not reaped.
+// However the cmd ends it is important that the caller reap the process
+// by calling cmd.Process.Wait() otherwise it can use up a process slot in
+// the operating system.
+// Note that Result is not filled in.
+func NewExpectProc(prog string, arg ...string) (*Expect, *exec.Cmd, error) {
+	exp, err := newExpectCommon(false, prog, arg...)
+	return exp, exp.cmd, err
+}
+
+func newExpectCommon(reap bool, prog string, arg ...string) (*Expect, error) {
+	name := "NewExpect"
+	if reap {
+		name = "MewExpectProc"
+	}
+
 	var err error
 	exp := new(Expect)
-	kill := false // On an error I want to kill the process - if it was started
-	defer func() {
-		if kill {
-			if err2 := exp.cmd.Process.Kill(); err2 != nil {
-				debugf("NewExpect cannot kill %s on error: %s", prog, err)
-			}
-		}
-	}()
-
 	exp.cmd = exec.Command(prog, arg...)
 	exp.File, err = pty.Start(exp.cmd)
+
+	if reap && exp.cmd.Process != nil {
+		go exp.expectReaper()
+	}
+
 	if err != nil {
 		if exp.cmd.Process != nil {
 			if err2 := exp.cmd.Process.Kill(); err2 != nil {
-				debugf("NewExpect cannot kill %s on error: %s", prog, err)
+				debugf("%s cannot kill %s on error: %s", name, prog, err)
 			}
 		}
 		return nil, err
 	}
-	go exp.expectReaper()
-	kill = true
 
 	// make the pty non blocking so when I read from it I dont jam up
 	fd := int(exp.File.Fd())
 	err = syscall.SetNonblock(fd, true)
 	if err != nil {
 		if err2 := exp.cmd.Process.Kill(); err2 != nil {
-			debugf("NewExpect cannot kill %s on error: %s", prog, err)
+			debugf("%s cannot kill %s on error: %s", name, prog, err)
 		}
 		return nil, err
 	}
@@ -187,8 +204,6 @@ func NewExpect(prog string, arg ...string) (*Expect, error) {
 	exp.endExpectReader = make(chan bool, 2) // should be 1 but just in case have extra space
 	exp.expectReaderRunning = true
 	go exp.expectReader()
-
-	kill = false
 
 	return exp, err
 }

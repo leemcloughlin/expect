@@ -123,6 +123,26 @@ func Test_NewExpect(t *testing.T) {
 	showWaitResult(t, exp)
 }
 
+func Test_NewExpectProc(t *testing.T) {
+	debugf("%s start", funcName())
+	defer debugf("%s end", funcName())
+
+	t.Logf("starting %s", prog)
+	exp, cmd, err := NewExpectProc(prog)
+	if err != nil {
+		t.Errorf("NewExpect failed %s", err)
+		return
+	}
+	t.Log("OK killing processes")
+	exp.Kill()
+	ps, err := cmd.Process.Wait()
+	if err != nil {
+		t.Errorf("Failed to Wait() %s", err)
+		return
+	}
+	t.Logf("cmd Wait() result: %s", ps)
+}
+
 func Test_Spawn(t *testing.T) {
 	debugf("%s start", funcName())
 	defer debugf("%s end", funcName())
