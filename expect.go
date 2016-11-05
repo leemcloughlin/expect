@@ -448,6 +448,16 @@ func (exp *Expect) SendSlow(delay time.Duration, s string) (int, error) {
 	return len([]byte(s)), nil
 }
 
+// SendL is a convenience wrapper around Send(), adding linebreaks around each of the @lines.
+func (exp *Expect) SendL(lines ...string) error {
+	for _, line := range lines {
+		if _, err := exp.Send(line + "\r"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Expecti is a convenience wrapper around Expect() that only returns the index
 // and not the found bytes or error. This is close to the original expect()
 func (exp *Expect) Expecti(reOrStrs ...interface{}) int {
