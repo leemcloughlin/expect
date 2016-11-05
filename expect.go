@@ -169,11 +169,6 @@ func newExpectCommon(reap bool, prog string, arg ...string) (*Expect, error) {
 	exp := new(Expect)
 	exp.cmd = exec.Command(prog, arg...)
 	exp.File, err = pty.Start(exp.cmd)
-
-	if reap && exp.cmd.Process != nil {
-		go exp.expectReaper()
-	}
-
 	if err != nil {
 		if exp.cmd.Process != nil {
 			if err2 := exp.cmd.Process.Kill(); err2 != nil {
@@ -201,6 +196,9 @@ func newExpectCommon(reap bool, prog string, arg ...string) (*Expect, error) {
 	exp.endExpectReader = make(chan bool, 2) // should be 1 but just in case have extra space
 	exp.expectReaderRunning = true
 	go exp.expectReader()
+	if reap {
+		go exp.expectReaper()
+	}
 
 	return exp, err
 }
