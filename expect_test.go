@@ -90,7 +90,7 @@ func showWaitResult(t *testing.T, exp *Expect) {
 	// but checking for all the errors is painful for code I expect to be used
 	// so rarely)
 	for i := 1; i <= 3; i++ {
-		if exp.Result.IsValid {
+		if exp.Result.ProcessState != nil || exp.Result.Error != nil {
 			valid = true
 			break
 		}

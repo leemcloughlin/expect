@@ -124,9 +124,6 @@ type Expect struct {
 }
 
 type ExpectWaitResult struct {
-	// IsValid is true if this has been set because wait returned
-	IsValid bool
-
 	ProcessState *os.ProcessState
 	Error        error
 }
@@ -212,7 +209,6 @@ func newExpectCommon(reap bool, prog string, arg ...string) (*Expect, error) {
 // Wait() result
 func (exp *Expect) expectReaper() {
 	exp.Result.ProcessState, exp.Result.Error = exp.cmd.Process.Wait()
-	exp.Result.IsValid = true
 }
 
 // SetCmdOut if a non-nil io.Writer is passed it will be sent a copy of everything
