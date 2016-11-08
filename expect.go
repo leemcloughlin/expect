@@ -156,6 +156,9 @@ func NewExpect(prog string, arg ...string) (*Expect, error) {
 // Note that Result is not filled in.
 func NewExpectProc(prog string, arg ...string) (*Expect, *exec.Cmd, error) {
 	exp, err := newExpectCommon(false, prog, arg...)
+	if err != nil {
+		return nil, nil, err
+	}
 	return exp, exp.cmd, err
 }
 
