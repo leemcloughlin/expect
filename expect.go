@@ -93,12 +93,11 @@ func init() {
 // you have to send it an EOF
 
 type Expect struct {
-	// *os.File is an anonymous field for the pty connected to the command.
-	// This allows you to treat *Expect as a *os.File
-	*os.File
+	// Input/output connected to the PTY
+	file *os.File
 
 	cmd    *exec.Cmd
-	cmdIn  io.Reader // Internally I always read from cmdIn not File so cmdOut works
+	cmdIn  io.Reader // Internally I always read from cmdIn not file so cmdOut works
 	cmdOut io.Writer
 
 	timeout time.Duration
@@ -179,12 +178,12 @@ func newExpectCommon(parentCtx context.Context, reap bool, prog string, arg ...s
 	exp.ctx, exp.cancel = context.WithCancel(parentCtx)
 	exp.cmd = exec.CommandContext(exp.ctx, prog, arg...)
 
-	if exp.File, err = pty.Start(exp.cmd); err != nil {
+	if exp.file, err = pty.Start(exp.cmd); err != nil {
 		return nil, err
 	}
 
 	// make the pty non blocking so when I read from it I dont jam up
-	if err = syscall.SetNonblock(int(exp.File.Fd()), true); err != nil {
+	if err = syscall.SetNonblock(int(exp.file.Fd()), true); err != nil {
 		return nil, err
 	}
 	exp.SetCmdOut(nil)
@@ -211,9 +210,9 @@ func (exp *Expect) expectReaper() {
 func (exp *Expect) SetCmdOut(cmdOut io.Writer) {
 	if cmdOut != nil {
 		exp.cmdOut = cmdOut
-		exp.cmdIn = io.TeeReader(exp.File, cmdOut)
+		exp.cmdIn = io.TeeReader(exp.file, cmdOut)
 	} else {
-		exp.cmdIn = exp.File
+		exp.cmdIn = exp.file
 		exp.cmdOut = nil
 	}
 }
@@ -403,8 +402,13 @@ func (exp *Expect) BufStr() string {
 // Kill the command. Using an Expect after a Kill is undefined
 func (exp *Expect) Kill() {
 	exp.Buffer.Reset()
-	exp.File.Close()
+	exp.file.Close()
 	exp.cancel() // calls os.Process.Kill() on exp.cmd
+}
+
+// Close is an alias for Kill
+func (exp *Expect) Close() {
+	exp.Kill()
 }
 
 // Original expect compatibility
@@ -416,7 +420,7 @@ func Spawn(prog string, arg ...string) (*Expect, error) {
 
 // Send sends the string to the process, for compatibility with the original expect
 func (exp *Expect) Send(s string) (int, error) {
-	return exp.Write([]byte(s))
+	return exp.file.Write([]byte(s))
 }
 
 // Sends string rune by rune with a delay before each.
@@ -425,7 +429,7 @@ func (exp *Expect) SendSlow(delay time.Duration, s string) (int, error) {
 	for _, rune := range s {
 		time.Sleep(delay)
 		bytes := []byte(string(rune))
-		n, err := exp.Write(bytes)
+		n, err := exp.file.Write(bytes)
 		if err != nil {
 			return n, err
 		}
