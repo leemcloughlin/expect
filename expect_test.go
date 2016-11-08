@@ -14,6 +14,7 @@ package expect
 
 import (
 	"bytes"
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -128,7 +129,7 @@ func Test_NewExpectProc(t *testing.T) {
 	defer debugf("%s end", funcName())
 
 	t.Logf("starting %s", prog)
-	exp, cmd, err := NewExpectProc(prog)
+	exp, cmd, err := NewExpectProc(context.TODO(), prog)
 	if err != nil {
 		t.Errorf("NewExpect failed %s", err)
 		return

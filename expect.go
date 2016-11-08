@@ -37,6 +37,7 @@ package expect
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -110,17 +111,15 @@ type Expect struct {
 	// expertReader reads from Cmd and sends to Expect over this Chan
 	bytesIn chan byteIn
 
-	// Send true to this chan to get the expectReader goroutine to end
-	endExpectReader chan bool
-
-	// Is the expectReader running?
-	expectReaderRunning bool
-
 	// On EOF being read from Cmd this is set (and ExpectReader is ended)
 	Eof bool
 
 	// Result is filled in asynchronously after the cmd exits
 	Result ExpectWaitResult
+
+	// Cancellation context: @cancel causes internal and os/exec cancellation
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 type ExpectWaitResult struct {
@@ -141,41 +140,44 @@ func debugf(format string, args ...interface{}) {
 // been tested on Linux systems.
 // On prog exiting or being killed Result is filled in shortly after.
 func NewExpect(prog string, arg ...string) (*Expect, error) {
-	return newExpectCommon(true, prog, arg...)
+	return newExpectCommon(context.Background(), true, prog, arg...)
 }
 
 // NewExpectProc is similar to NewExpect except the created cmd is returned.
 // It is expected that the cmd will exit normally otherwise it is left to
-// the caller to kill it.
+// the caller to kill it. This can be achieved by canceling the context @ctx.
 // In the event of an error starting the cmd it will be killed but not reaped.
 // However the cmd ends it is important that the caller reap the process
 // by calling cmd.Process.Wait() otherwise it can use up a process slot in
 // the operating system.
 // Note that Result is not filled in.
-func NewExpectProc(prog string, arg ...string) (*Expect, *exec.Cmd, error) {
-	exp, err := newExpectCommon(false, prog, arg...)
+func NewExpectProc(ctx context.Context, prog string, arg ...string) (*Expect, *exec.Cmd, error) {
+	exp, err := newExpectCommon(ctx, false, prog, arg...)
 	if err != nil {
 		return nil, nil, err
 	}
 	return exp, exp.cmd, err
 }
 
-func newExpectCommon(reap bool, prog string, arg ...string) (exp *Expect, err error) {
+// newExpectCommon uses @parentCtx as cancellation context and @reap to indicate
+// whether the spawned process should automatically be reaped.
+func newExpectCommon(parentCtx context.Context, reap bool, prog string, arg ...string) (exp *Expect, err error) {
 	defer func() {
 		// On an error I want to kill the process - if it was started
 		if err != nil && exp != nil && exp.cmd.Process != nil {
-			if err := exp.cmd.Process.Kill(); err != nil {
-				debugf("newExpectCommon cannot kill %s on error: %s", prog, err)
-			}
+			debugf("killing process %q due to error (%s)", prog, err)
+			exp.Kill()
 		}
 	}()
 
 	exp = &Expect{
-		cmd:             exec.Command(prog, arg...),
-		Buffer:          new(bytes.Buffer),
-		bytesIn:         make(chan byteIn, ExpectInSize),
-		endExpectReader: make(chan bool, 2), // should be 1 but just in case have extra space
+		Buffer:  new(bytes.Buffer),
+		bytesIn: make(chan byteIn, ExpectInSize),
 	}
+
+	// Create a cancelable child context for exp.cmd (go >= 1.7)
+	exp.ctx, exp.cancel = context.WithCancel(parentCtx)
+	exp.cmd = exec.CommandContext(exp.ctx, prog, arg...)
 
 	if exp.File, err = pty.Start(exp.cmd); err != nil {
 		return nil, err
@@ -187,7 +189,6 @@ func newExpectCommon(reap bool, prog string, arg ...string) (exp *Expect, err er
 	}
 	exp.SetCmdOut(nil)
 
-	exp.expectReaderRunning = true
 	go exp.expectReader()
 
 	if reap {
@@ -268,20 +269,21 @@ func (exp *Expect) Expect(reOrStrs ...interface{}) (int, []byte, error) {
 
 	for {
 		select {
+		case <-exp.ctx.Done():
+			debugf("Expect got canceled: %s", exp.ctx.Err())
+			return TimedOut, nil, exp.ctx.Err()
 		case <-timedOut:
 			debugf("Expect timedOut")
 			return TimedOut, nil, ETimedOut
 		case boe, ok := <-exp.bytesIn:
 			if !ok {
 				debugf("Expect read error")
-				exp.expectReaderRunning = false
 				exp.Eof = true
 				return NotFound, nil, EReadError
 			}
 
 			if boe.isEOF {
 				debugf("Expect eof")
-				exp.expectReaderRunning = false
 				exp.Eof = true
 				return NotFound, nil, nil
 			}
@@ -353,13 +355,12 @@ type byteIn struct {
 }
 
 // expectReader reads from the pty and sends either a byte or eof to Expect.
-// if anything appears on endExpectReader this goroutine ends
 func (exp *Expect) expectReader() {
 	debugf("expectReader starting")
 	buf := make([]byte, 1)
 	for {
 		select {
-		case <-exp.endExpectReader:
+		case <-exp.ctx.Done():
 			debugf("expectReader ending")
 			return
 		default:
@@ -400,14 +401,10 @@ func (exp *Expect) BufStr() string {
 }
 
 // Kill the command. Using an Expect after a Kill is undefined
-func (exp *Expect) Kill() error {
+func (exp *Expect) Kill() {
 	exp.Buffer.Reset()
-	exp.Close()
-	if exp.expectReaderRunning {
-		exp.endExpectReader <- true
-		exp.expectReaderRunning = false
-	}
-	return exp.cmd.Process.Kill()
+	exp.File.Close()
+	exp.cancel() // calls os.Process.Kill() on exp.cmd
 }
 
 // Original expect compatibility
