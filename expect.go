@@ -160,48 +160,41 @@ func NewExpectProc(prog string, arg ...string) (*Expect, *exec.Cmd, error) {
 	return exp, exp.cmd, err
 }
 
-func newExpectCommon(reap bool, prog string, arg ...string) (*Expect, error) {
-	name := "NewExpect"
-	if reap {
-		name = "MewExpectProc"
-	}
-
-	var err error
-	exp := new(Expect)
-	exp.cmd = exec.Command(prog, arg...)
-	exp.File, err = pty.Start(exp.cmd)
-	if err != nil {
-		if exp.cmd.Process != nil {
-			if err2 := exp.cmd.Process.Kill(); err2 != nil {
-				debugf("%s cannot kill %s on error: %s", name, prog, err)
+func newExpectCommon(reap bool, prog string, arg ...string) (exp *Expect, err error) {
+	defer func() {
+		// On an error I want to kill the process - if it was started
+		if err != nil && exp != nil && exp.cmd.Process != nil {
+			if err := exp.cmd.Process.Kill(); err != nil {
+				debugf("newExpectCommon cannot kill %s on error: %s", prog, err)
 			}
 		}
+	}()
+
+	exp = &Expect{
+		cmd:             exec.Command(prog, arg...),
+		Buffer:          new(bytes.Buffer),
+		bytesIn:         make(chan byteIn, ExpectInSize),
+		endExpectReader: make(chan bool, 2), // should be 1 but just in case have extra space
+	}
+
+	if exp.File, err = pty.Start(exp.cmd); err != nil {
 		return nil, err
 	}
 
 	// make the pty non blocking so when I read from it I dont jam up
-	fd := int(exp.File.Fd())
-	err = syscall.SetNonblock(fd, true)
-	if err != nil {
-		if err2 := exp.cmd.Process.Kill(); err2 != nil {
-			debugf("%s cannot kill %s on error: %s", name, prog, err)
-		}
+	if err = syscall.SetNonblock(int(exp.File.Fd()), true); err != nil {
 		return nil, err
 	}
-
 	exp.SetCmdOut(nil)
 
-	exp.Buffer = new(bytes.Buffer)
-
-	exp.bytesIn = make(chan byteIn, ExpectInSize)
-	exp.endExpectReader = make(chan bool, 2) // should be 1 but just in case have extra space
 	exp.expectReaderRunning = true
 	go exp.expectReader()
+
 	if reap {
 		go exp.expectReaper()
 	}
 
-	return exp, err
+	return exp, nil
 }
 
 // expectReaper reaps the process if it ends for any reason and saves the
