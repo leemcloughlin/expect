@@ -130,11 +130,9 @@ type ExpectWaitResult struct {
 
 // debugf logs only if Debug is true
 func debugf(format string, args ...interface{}) {
-	if !Debug {
-		return
+	if Debug {
+		log.Printf(format, args...)
 	}
-	s := fmt.Sprintf(format, args...)
-	log.Print(s)
 }
 
 // NewExpect starts prog, passing any given args, in its own pty.
