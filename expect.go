@@ -373,7 +373,7 @@ func (exp *Expect) expectReader() {
 			return
 		default:
 			n, err := exp.cmdIn.Read(buf)
-			debugf("expectReader read %d, %c, %s", n, buf[0], err)
+			debugf("expectReader read %d, %c, %v", n, buf[0], err)
 			if err != nil {
 				if unixIsEAGAIN(err) {
 					debugf("expectReader EAGAIN")
