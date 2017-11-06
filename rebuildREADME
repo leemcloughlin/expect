@@ -1,2 +1,2 @@
 #!/bin/sh
-godoc2md github.com/leemcloughlin/expect > README.md
+godoc2md github.com/grrtrr/expect > README.md

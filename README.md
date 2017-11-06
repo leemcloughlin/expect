@@ -1,7 +1,7 @@
 
 
 # expect
-`import "github.com/leemcloughlin/expect"`
+`import "github.com/grrtrr/expect"`
 
 * [Overview](#pkg-overview)
 * [Index](#pkg-index)
@@ -22,7 +22,7 @@ line is:
 	}
 	exp.SetTimeoutSecs(5)
 	exp.Send("hello\r")
-	
+
 	// i will be the index of the argument that matched the input otherwise
 	// i will be a negative number showing match fail or error
 	i, found, err := exp.Expect("olleh")
@@ -65,7 +65,7 @@ This package has only been tested on Linux
 * [Expect (OwnEcho)](#example_Expect_ownEcho)
 
 #### <a name="pkg-files">Package files</a>
-[expect.go](/src/github.com/leemcloughlin/expect/expect.go) 
+[expect.go](/src/github.com/grrtrr/expect/expect.go)
 
 
 ## <a name="pkg-constants">Constants</a>

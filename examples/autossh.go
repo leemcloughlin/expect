@@ -12,7 +12,7 @@ import (
 	"os/user"
 	"path"
 
-	"github.com/leemcloughlin/expect"
+	"github.com/grrtrr/expect"
 )
 
 // Name of key (in user's $HOME/.ssh directory) to exchange

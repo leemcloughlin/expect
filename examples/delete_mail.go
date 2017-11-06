@@ -5,7 +5,7 @@ package main
 import (
 	"log"
 
-	"github.com/leemcloughlin/expect"
+	"github.com/grrtrr/expect"
 )
 
 func main() {
