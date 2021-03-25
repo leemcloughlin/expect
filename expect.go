@@ -107,6 +107,10 @@ type Expect struct {
 	// See also Clear() and BufStr()
 	Buffer *bytes.Buffer
 
+	// BeforeBuffer contains the output between the previous matched expect and
+	// the last one.
+	BeforeBuffer *bytes.Buffer
+
 	// expertReader reads from Cmd and sends to Expect over this Chan
 	bytesIn chan byteIn
 
@@ -199,6 +203,7 @@ func newExpectCommon(reap bool, prog string, arg ...string) (*Expect, error) {
 	exp.SetCmdOut(nil)
 
 	exp.Buffer = new(bytes.Buffer)
+	exp.BeforeBuffer = new(bytes.Buffer)
 
 	exp.bytesIn = make(chan byteIn, ExpectInSize)
 	exp.endExpectReader = make(chan bool, 2) // should be 1 but just in case have extra space
@@ -341,6 +346,7 @@ func (exp *Expect) Expect(reOrStrs ...interface{}) (int, []byte, error) {
 				debugf("Expect reset buffer to the remaining input following the match")
 				debugf("Expect buffer before reset:<<%s>>", string(exp.Buffer.Bytes()))
 				newBuf := bufBytes[end:]
+				io.Copy(exp.BeforeBuffer, exp.Buffer)
 				debugf("Expect remaining:<<%s>>", string(newBuf))
 				exp.Buffer.Reset()
 				exp.Buffer.Write(newBuf)
@@ -409,6 +415,12 @@ func (exp *Expect) Clear() {
 // BufStr is the buffer of expect read data as a string
 func (exp *Expect) BufStr() string {
 	return string(exp.Buffer.Bytes())
+}
+
+// BeforeBufStr is the buffer between the previous matched expect and the last
+// one as a string
+func (exp *Expect) BeforeBufStr() string {
+	return string(exp.BeforeBuffer.Bytes())
 }
 
 // Kill the command. Using an Expect after a Kill is undefined
