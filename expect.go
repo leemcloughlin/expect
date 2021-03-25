@@ -48,7 +48,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/kr/pty"
+	"github.com/creack/pty"
 )
 
 const (
